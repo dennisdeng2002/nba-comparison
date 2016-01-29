@@ -1,5 +1,7 @@
 from bs4 import BeautifulSoup
+from operator import itemgetter
 import requests, string, numpy
+
 
 def get_soup(url):
     try:
@@ -8,6 +10,7 @@ def get_soup(url):
         print("Invalid url")
 
     return BeautifulSoup(r.text, "html.parser")
+
 
 def get_raw_player_data():
 
@@ -39,7 +42,7 @@ def get_raw_player_data():
 
             player_data.append((name_data.contents[0],
                             #url to player profile page
-                            'http://www.basketball-reference.com/players/' + name_data.attrs['href'],
+                            'http://www.basketball-reference.com/' + name_data.attrs['href'],
                             position_data.contents[0],
                             height_data.contents[0],
                             weight_data.contents[0]
@@ -47,6 +50,21 @@ def get_raw_player_data():
 
     return player_data
 
+
 def save_raw_player_data():
     raw_player_data = numpy.array(get_raw_player_data())
     numpy.save('raw_player_data.npy', raw_player_data)
+
+
+def get_basic_comparison(height, num):
+    names = list()
+    # path must be specified for this to work in Flask
+    raw_player_data = numpy.load('/Users/dennisdeng2002/Documents/Programming/PycharmProjects/nba-comparison/raw_player_data.npy')
+    for data in raw_player_data:
+        if data[3] == height:
+            names.append([data[0], 1])
+        else:
+            names.append([data[0], 0])
+
+    names.sort(key=itemgetter(1), reverse=True)
+    return names[0:num]
