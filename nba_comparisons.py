@@ -14,8 +14,12 @@ def index():
 
 @app.route('/basic_comparison', methods=['POST'])
 def height():
-    user_height = request.form['height']
-    names = ds.get_basic_comparison(user_height, 10)
+    user_position = request.form['position']
+    user_height = int(request.form['height'])
+
+    data = (user_position, user_height)
+    names = ds.compare(data)
+
     return render_template('basic_comparison.html', player_names = names)
 
 

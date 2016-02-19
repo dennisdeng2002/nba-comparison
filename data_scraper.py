@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 from operator import itemgetter
 import requests, string, numpy
 
+raw_data_path = "/Users/dennisdeng2002/Documents/Programming/PycharmProjects/nba-comparison/raw_player_data.npy"
+starting_points = 100
+position_value_weight = 1
 
 def get_soup(url):
     try:
@@ -62,15 +65,16 @@ def get_raw_player_data():
 
 def save_raw_player_data():
     raw_player_data = numpy.array(get_raw_player_data())
-    numpy.save('raw_player_data.npy', raw_player_data)
+    numpy.save(raw_data_path, raw_player_data)
+
 
 def convert_height_to_inches(height):
     height_split = height.split("-")
     feet = int(height_split[0]) * 12
     return feet + int(height_split[1])
 
-def get_statistics_for_height(position):
-    raw_player_data = numpy.load('raw_player_data.npy')
+
+def get_statistics_for_height(position, raw_player_data):
     heights = []
     for data in raw_player_data:
         if position in data[1]:
@@ -79,20 +83,74 @@ def get_statistics_for_height(position):
     heights = numpy.array(heights)
     return [numpy.average(heights), numpy.std(heights)]
 
-def get_basic_comparison_for_height(my_height, my_position, num_of_players):
-    names = list()
-    # arbitrarily define average PG height at local gym as 5'8
-    local_height = 68
-    height_data = get_statistics_for_height(my_position)
-    converted_height = height_data[0] + (my_height - local_height)
+
+def get_statistics_for_weight(position, raw_player_data):
+    weights = []
+    for data in raw_player_data:
+        if position in data[1]:
+            weights.append(int(data[3]))
+
+    weights = numpy.array(weights)
+    return [numpy.average(weights), numpy.std(weights)]
+
+
+def get_player_names(my_data):
+
+    my_position, my_height, my_weight = my_data[0], my_data[1], my_data[2]
+
     # path must be specified for this to work in Flask
-    raw_player_data = numpy.load('/Users/dennisdeng2002/Documents/Programming/PycharmProjects/nba-comparison/raw_player_data.npy')
+    raw_player_data = numpy.load(raw_data_path)
+    comparison_data = list()
+
+    comparison_data = compare_position(my_position, comparison_data, raw_player_data)
+    comparison_data = compare_height(my_position, my_height, comparison_data, raw_player_data)
+    comparison_data = compare_height(my_position, my_weight, comparison_data, raw_player_data)
+
+    comparison_data.sort(key=itemgetter(1), reverse=True)
+
+    return comparison_data
+
+
+def compare_position(my_position, comparison_data, raw_player_data):
 
     for data in raw_player_data:
-        points = 100 - numpy.abs(converted_height - int(data[2]))/height_data[1]
-        names.append((data[0], points))
+        if my_position == data[1]:
+            comparison_data.append([data[0], starting_points])
+        else:
+            points = starting_points - position_value_weight
+            comparison_data.append([data[0], points])
 
-    names.sort(key=itemgetter(1), reverse=True)
-    return names[0:num_of_players]
+    return comparison_data
 
-print(get_basic_comparison_for_height(78, "Point Guard", 10))
+
+def compare_height(my_position, my_height, comparison_data, raw_player_data):
+
+    # arbitrarily define average PG height at local gym as 5'8
+    local_height = 68
+
+    average_height = get_statistics_for_height(my_position, raw_player_data)
+    converted_height = average_height[0] + (my_height - local_height)
+
+    for i in range(0, len(comparison_data)):
+        points = comparison_data[i][1] - numpy.abs(converted_height - int(raw_player_data[i][2]))/average_height[1]
+        comparison_data[i][1] = points
+
+    return comparison_data
+
+
+def compare_weight(my_position, my_weight, comparison_data, raw_player_data):
+
+    local_weight = 150
+
+    average_weight = get_statistics_for_weight(my_position, raw_player_data)
+    converted_weight = average_weight[0] + (my_weight - local_weight)
+
+    for i in range(0, len(comparison_data)):
+        points = comparison_data[i][1] - numpy.abs(converted_weight - int(raw_player_data[i][2]))/average_weight[1]
+        comparison_data[i][1] = points
+
+    return comparison_data
+
+
+data = ["Point Guard", 62, 180]
+print(get_player_names(data))
